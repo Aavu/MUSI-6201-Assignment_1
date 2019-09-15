@@ -1,7 +1,9 @@
 import numpy as np
 from scipy.io.wavfile import read
 import matplotlib.pyplot as plt
+import glob
 
+np.set_printoptions(precision=3, suppress=True)
 # A. Block-wise Pitch Tracking with the ACF
 
 def block_audio(x, blockSize, hopSize, fs):
@@ -24,7 +26,7 @@ def block_audio(x, blockSize, hopSize, fs):
 def comp_acf(inputVector, bIsNormalized=True):
     r = np.correlate(inputVector, inputVector, 'full')
     if bIsNormalized:
-        r /= (np.max(r) + 1e-6)
+        r = r/(np.max(r) + 1e-6)
     return r[len(r)//2:]
 
 def get_f0_from_acf(r, fs):
@@ -67,16 +69,30 @@ def convert_freq2midi(freqInHz):
     return 69 + 12*np.log2(freqInHz / 440.0)
 
 def eval_pitchtrack(estimateInHz, groundtruthInHz):
-    return np.sqrt(np.mean(np.square(estimateInHz-groundtruthInHz)))
-
-# midi = convert_freq2midi(np.array([440, 880, 660, 293.5]))
-# print(midi)
-
-# print(eval_pitchtrack(np.zeros(10), np.array([10,20,30,40,50,60,70,80,90,0])))
+    # return np.sqrt(np.mean(np.square(estimateInHz-groundtruthInHz)))
+    return np.sqrt(np.mean(np.square(convert_freq2midi(estimateInHz)-convert_freq2midi(groundtruthInHz))))
 
 def run_evaluation(complete_path_to_data_folder):
-    fs, audio = read(complete_path_to_data_folder + '/01-D_AMairena.wav')
-    blocked_x, timeInSec = block_audio(audio, 528, 528, fs)
-    print(np.round(timeInSec[:10], 3))
+    if complete_path_to_data_folder[-1] == '/':
+        complete_path_to_data_folder = complete_path_to_data_folder[:-1]
+    wav_files = [f for f in glob.glob(complete_path_to_data_folder + '/*.wav')]
+    errCentRms = []
+    for wav_file in wav_files:
+        name = wav_file.split('/')[-1].split('.')[0]
+        with open(complete_path_to_data_folder + '/' + name + '.f0.Corrected.txt') as f:
+            annotations = f.readlines()
+        for i in range(len(annotations)):
+            annotations[i] = list(map(float, annotations[i][:-2].split('     ')))
+        annotations = np.array(annotations)
+        fs, audio = read(wav_file)
+        freq, timeInSec = track_pitch_acf(audio, 512, 512, fs)
+        trimmed_freq = np.ones(freq.shape)
+        trimmed_annotations = np.ones(freq.shape)
+        for i in range(len(freq)):
+            if annotations[i, 3] > 0:
+                trimmed_freq[i] = freq[i]
+                trimmed_annotations[i] = annotations[i,3]
+        errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
+    return errCentRms
 
-run_evaluation("../trainData")
+print(run_evaluation("trainData"))
