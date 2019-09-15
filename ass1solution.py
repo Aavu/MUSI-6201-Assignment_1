@@ -54,7 +54,7 @@ def get_f0_from_acf(r, fs):
             # return fs/i
     return 0
 
-def track_pitch_acf(x, blockSize, hopSize, fs):
+def track_pitch_acfmod(x, blockSize, hopSize, fs):
     blocked_x, timeInSec = block_audio(x, blockSize, hopSize, fs)
     frequencies = []
     for b in blocked_x:
@@ -88,7 +88,7 @@ fs = 44100
 f1 = 441
 f2 = 882
 sin = gen_sin(f1, f2, fs)
-[frequencies, timeInSec] = track_pitch_acf(sin, 441, 441, fs)
+[frequencies, timeInSec] = track_pitch_acfmod(sin, 441, 441, fs)
 error = np.zeros(len(timeInSec))
 error[:len(timeInSec) // 2] += f1
 error[len(timeInSec) // 2 :] += f2
