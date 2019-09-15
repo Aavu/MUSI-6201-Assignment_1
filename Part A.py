@@ -3,24 +3,24 @@ import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 
 def block_audio(x,blockSize,hopSize,fs):
-    # Reading the audio file
-
+    
     xb = []
     timeInSec = []
     n = len(x)
-    m = (n - hopSize) % (blockSize - hopSize)
+    # m = (n - hopSize) % (blockSize - hopSize)
 
-    if m > 0:
-      x = np.pad(x, (0,m), 'constant', constant_values=0)
+    # if m > 0:
+    #   x = np.pad(x, (0,m), 'constant', constant_values=0)
 
     # Blocking the audio file
-    for i in range(0, n-blockSize, hopSize):
-        time_stamp = i / fs
-        block = []
-        for j in range(i, i+blockSize):
-            block.append(x[j])
-        xb.append(block)
-        timeInSec.append(time_stamp)
+    for i in range(0, n-1, hopSize):
+        if n-i-1 > blockSize:
+            time_stamp = i / fs
+            block = []
+            for j in range(i, i+blockSize):
+                block.append(x[j])
+            xb.append(block * np.hamming(blockSize))
+            timeInSec.append(time_stamp)
 
     return xb, timeInSec
 
@@ -32,24 +32,10 @@ def comp_acf(inputVector, bIsNormalized):
     r = acf[idx:]
 
     if not bIsNormalized:
-        if r.dtype == 'float32':
-            audio = r
-        else:
-            # change range to [-1,1)
-            if r.dtype == 'uint8':
-                nbits = 8
-            elif r.dtype == 'int16':
-                nbits = 16
-            elif r.dtype == 'int32':
-                nbits = 32
+        r = r/np.max(r)
 
-            audio = r / float(2 ** (nbits - 1))
-
-        # special case of unsigned format
-        if r.dtype == 'uint8':
-            audio = audio - 1.
-
-        r = audio
+    plt.plot(r)
+    plt.show()
 
     return r
 
@@ -74,4 +60,4 @@ def track_pitch_acf(x,blockSize,hopSize,fs):
     return f0, timeInSec
 
 sample_rate, audio = wav.read('D:/GT_Sem1/GT_Music Information Retrieval/Repo/Assignment1/02.wav')
-print(track_pitch_acf(audio, 256, 16, sample_rate))
+track_pitch_acf(audio, 256, 16, sample_rate)
