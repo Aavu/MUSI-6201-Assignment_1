@@ -19,7 +19,7 @@ This idea is implemented via the function "get_f0_from_acfmod" and "parabolic". 
 To smooth the pitch curve such that abrupt-changing pitches are removed. Set the kernel size to 7 or 9.<br><br>
 This idea is implemented via the function "track_pitch_acfmod". Median filtering is done before outputing the pitch.
 
-## Hamming window in audio blocking
+### Hamming window in audio blocking
 Hamming window is also used to reduce the abrupt-changing pitches. This idea is implemented via the function "block_audio_mod". 
 
 ### Others
