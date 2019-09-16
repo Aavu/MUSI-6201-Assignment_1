@@ -220,8 +220,8 @@ def run_evaluation_mod(complete_path_to_data_folder):
             if annotations[i, 2] > 0:
                 trimmed_freq[i] = freq[i]
                 trimmed_annotations[i] = annotations[i, 2]
-        plt.plot(trimmed_freq, label='trimmed frequency')
-        plt.plot(trimmed_annotations, label='trimmed annotation')
+        plt.plot(trimmed_freq, label='frequency (Hz)')
+        plt.plot(trimmed_annotations, label='annotation')
         plt.legend()
         plt.show()
         errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
