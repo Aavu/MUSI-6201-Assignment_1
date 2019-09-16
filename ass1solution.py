@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.io.wavfile import read
+from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 import glob
 
@@ -25,21 +26,23 @@ def block_audio(x, blockSize, hopSize, fs):
 
 def comp_acf(inputVector, bIsNormalized=True):
     r = np.correlate(inputVector, inputVector, 'full')
-    if bIsNormalized:
+    if bIsNormalized: # change it
         r = r/(np.max(r) + 1e-6)
     return r[len(r)//2:]
 
 def get_f0_from_acf(r, fs):
-    for i in range(1, len(r)-1):
-        if r[i-1] < r[i] and r[i] >= r[i+1]:
-            f0 = fs / i
-            # if f0 > 600:
-            #     plt.plot(r)
-            #     plt.plot([0,i],[r[0],r[i]], 'rs')
-            #     plt.show()
-            return f0
-    
+    peaks = find_peaks(r, height=0, distance=50)[0]
+    if len(peaks) >= 2:
+        p = sorted(r[peaks])[::-1]
+        sorted_arg = np.argsort(r[peaks])[::-1]
+        f0 = fs/abs(peaks[sorted_arg][1] - peaks[sorted_arg][0])
+        # f0 = fs / abs(np.where(r == p[0])[0][0] - np.where(r == p[1])[0][0])
+        # plt.plot(r)
+        # plt.plot(peaks, r[peaks], 'rs')
+        # plt.show()
+        return f0
     return 0
+    
 
 def track_pitch_acf(x, blockSize, hopSize, fs):
     blocked_x, timeInSec = block_audio(x, blockSize, hopSize, fs)
@@ -117,6 +120,8 @@ def run_evaluation(complete_path_to_data_folder):
         plt.plot(trimmed_annotations)
         plt.show()
         errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
-    return errCentRms
+    errCentRms = np.array(errCentRms)
+    # print(errCentRms)
+    return np.mean(errCentRms)
 
 print(run_evaluation("trainData"))
