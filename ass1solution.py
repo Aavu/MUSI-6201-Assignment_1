@@ -118,9 +118,9 @@ def run_evaluation(complete_path_to_data_folder):
             if annotations[i, 2] > 0:
                 trimmed_freq[i] = freq[i]
                 trimmed_annotations[i] = annotations[i, 2]
-        plt.plot(trimmed_freq)
-        plt.plot(trimmed_annotations)
-        plt.show()
+        # plt.plot(trimmed_freq)
+        # plt.plot(trimmed_annotations)
+        # plt.show()
         errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
     errCentRms = np.array(errCentRms)
     # print(errCentRms)
@@ -161,6 +161,19 @@ def parabolic(f, x):
     yv = f[x] - 1/4. * (f[x-1] - f[x+1]) * (xv - x)
     return (xv, yv)
 
+# fs = 44100
+# f1 = 441
+# f2 = 882
+# sin = gen_sin(f1, f2, fs)
+# [frequencies, timeInSec] = track_pitch_acfmod(sin, 441, 441, fs)
+# error = np.zeros(len(timeInSec))
+# error[:len(timeInSec) // 2] += f1
+# error[len(timeInSec) // 2 :] += f2
+# error = np.abs(error - frequencies)
+# plt.plot(timeInSec, error)
+# plt.plot(timeInSec, frequencies)
+# plt.show()
+
 def run_evaluation_mod(complete_path_to_data_folder):
     if complete_path_to_data_folder[-1] == '/':
         complete_path_to_data_folder = complete_path_to_data_folder[:-1]
@@ -181,13 +194,13 @@ def run_evaluation_mod(complete_path_to_data_folder):
             if annotations[i, 2] > 0:
                 trimmed_freq[i] = freq[i]
                 trimmed_annotations[i] = annotations[i, 2]
-        plt.plot(trimmed_freq, label='trimmed frequency')
-        plt.plot(trimmed_annotations, label='trimmed annotation')
-        plt.legend()
-        plt.show()
+        # plt.plot(trimmed_freq, label='trimmed frequency')
+        # plt.plot(trimmed_annotations, label='trimmed annotation')
+        # plt.legend()
+        # plt.show()
         errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
     errCentRms = np.array(errCentRms)
-    print(errCentRms)
+    # print(errCentRms)
     return np.mean(errCentRms)
 
 print(run_evaluation("trainData/"))

@@ -11,7 +11,7 @@ To smooth the pitch curve such that abrupt-changing pitches are removed. Set the
 This idea is implemented via the function "track_pitch_acfmod". Median filtering is done before outputing the pitch.
 
 ### Others
-Except the functions mentioned above, namely "get_f0_from_acfmod", "parabolic" and "track_pitch_acfmod", other functions used in pitch tracker evaluation are not modified.
+Except the functions mentioned above, namely "get_f0_from_acfmod", "parabolic", "track_pitch_acfmod" and "run_evaluation_mod", other functions used in pitch tracker evaluation are not modified.
 
 ## Result comparison of the provided train data (3 audio clips)
 The modified code significantly reduces irrelevant pulses in pitch tracking, making the pitch tracker curve (blue) closer to the ground truth (orange). <br><br>
