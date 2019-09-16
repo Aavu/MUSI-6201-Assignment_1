@@ -7,7 +7,7 @@ One possible reason is insufficient length of block size that is required to res
 One other possible reason is when the block size is too small. In this case, the peaks are not found within the block due to lack of enough information.
 
 ### B.4
-The errCentRms is 643.862 which is in the expected expected range of 500 - 700. But still this value is prettry high for practical use.
+The errCentRms is 643.862 which is in the expected expected range of 500 - 700. If we plot the predictions and annotations, we can see clear spikes in the prediction. This could be one reason for the large error. This error value is pretty high for practical use.
 
 ## Ideas behind the modification of Pitch Tracker:
 ### Interpolation to ACF curve
