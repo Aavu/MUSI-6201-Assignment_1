@@ -5,37 +5,9 @@ from scipy.signal import find_peaks
 from matplotlib import pyplot as plt
 from scipy.io.wavfile import read
 import glob
+import os
 
-def convert_freq2midi(freqInHz):
-    if freqInHz == 0:
-        return 0
-    return 69 + 12*np.log2(freqInHz / 440.0)
-
-def freq2cent(freqInHz):
-    if freqInHz == 0:
-        return 0
-    return 1200 * np.log2(freqInHz/440.0)
-
-# def eval_pitchtrack(estimateInHz, groundtruthInHz):
-#     estimateInMIDI = convert_freq2midi(estimateInHz)
-#     groundtruthInMIDI = convert_freq2midi(groundtruthInHz)
-#     errCent = np.subtract(estimateInMIDI,groundtruthInMIDI)
-#     # n = errCent.shape[0] * errCent.shape[1]
-#     errCentRms = np.sqrt(np.mean(np.square(errCent)))
-#     # errCentRms = np.sqrt(np.divide(np.sum(np.square(errCent)),n))
-
-#     return errCentRms
-
-def eval_pitchtrack(estimateInHz, groundtruthInHz):
-    # return np.sqrt(np.mean(np.square(estimateInHz-groundtruthInHz)))
-    centError = []
-    for i in range(len(groundtruthInHz)):
-        if  groundtruthInHz[i] != 0:
-            centError.append(freq2cent(estimateInHz[i]) - freq2cent(groundtruthInHz[i]))
-    centError = np.array(centError)
-    rms = np.sqrt(np.mean(np.square(centError)))
-    # centRms = np.sqrt(np.mean(np.square(convert_freq2midi(estimateInHz)-convert_freq2midi(groundtruthInHz))))
-    return rms
+########################### A. Block-wise Pitch Tracking with the ACF ###########################
 
 def block_audio(x, blockSize, hopSize, fs):
     i = 0
@@ -52,23 +24,109 @@ def block_audio(x, blockSize, hopSize, fs):
             xb.append(chunk)
         i += hopSize
 
-    return [np.array(xb),np.array(timeInSec)]
-
+    return [np.array(xb), np.array(timeInSec)]
+    
 def comp_acf(inputVector, bIsNormalized=True):
     r = np.correlate(inputVector, inputVector, 'full')
     if bIsNormalized:
-        r = r/(np.max(r) + 1e-6)
-    return r[len(r)//2:]
+        r = r/(np.sum(np.square(r)))
+    return r[len(r) // 2 :]
 
-# def get_f0_from_acfmod(r, fs):
-#     for i in range(1, len(r)-1):
-#         if r[i-1] < r[i] and r[i] >= r[i+1]:    # find the peak
-#             px, py = parabolic(r, i)
-#             return fs/px
-#             # return fs/i
-#     return 0
+def get_f0_from_acf(r, fs):
+    peaks = find_peaks(r, height=0, distance=50)[0]
+    if len(peaks) >= 2:
+        p = sorted(r[peaks])[::-1]
+        sorted_arg = np.argsort(r[peaks])[::-1]
+        f0 = fs/abs(peaks[sorted_arg][1] - peaks[sorted_arg][0])
+        # plt.plot(r)
+        # plt.plot(peaks, r[peaks], 'rs')
+        # plt.show()
+        return f0
+    return 0
 
-########################### Bonus (Code modified from Raghav's version) ############################
+def track_pitch_acf(x, blockSize, hopSize, fs):
+    blocked_x, timeInSec = block_audio(x, blockSize, hopSize, fs)
+    frequencies = []
+    for b in blocked_x:
+        acf = comp_acf(b)
+        f0 = get_f0_from_acf(acf, fs)
+        frequencies.append(f0)
+    return [np.array(frequencies), timeInSec]
+
+########################### B. Evaluation ###########################
+
+def gen_sin(f1=441, f2=882, fs=44100):
+    t1 = np.linspace(0, 1, fs)
+    t2 = np.linspace(1, 2, fs)
+    sin_441 = np.sin(2 * np.pi * 441 * t1)
+    sin_882 = np.sin(2 * np.pi * 882 * t2)
+    sin = np.append(sin_441, sin_882)
+    return sin
+
+def code_for_B1():
+    fs = 44100
+    f1 = 441
+    f2 = 882
+    sin = gen_sin(f1, f2, fs)
+    [frequencies, timeInSec] = track_pitch_acf(sin, 441, 441, fs)
+    error = np.zeros(len(timeInSec))
+    error[:len(timeInSec) // 2] += f1
+    error[len(timeInSec) // 2 :] += f2
+    error = np.abs(error - frequencies)
+    plt.plot(timeInSec, error)
+    plt.plot(timeInSec, frequencies)
+    plt.show()
+
+code_for_B1()
+
+def convert_freq2midi(freqInHz):
+    return 69 + 12 * np.log2(freqInHz / 440.0)
+
+def freq2cent(freqInHz):
+    return 1200 * np.log2(freqInHz / 440.0)
+
+def eval_pitchtrack(estimateInHz, groundtruthInHz):
+    centError = []
+    for i in range(len(groundtruthInHz)):
+        if groundtruthInHz[i] != 0:
+            if estimateInHz[i] != 0:
+                centError.append(freq2cent(estimateInHz[i]) - freq2cent(groundtruthInHz[i]))
+            elif estimateInHz[i] == 0:
+                centError.append(-freq2cent(groundtruthInHz[i]))
+    centError = np.array(centError)
+    rms = np.sqrt(np.mean(np.square(centError)))
+    return rms
+
+def run_evaluation(complete_path_to_data_folder):
+    file_path = os.path.join(complete_path_to_data_folder, '*.wav')
+    wav_files = [f for f in glob.glob(file_path)]
+    errCentRms = []
+    for wav_file in wav_files:
+        name = os.path.split(wav_file)[1].split('.')[0]
+        # name = wav_file.split('/')[-1].split('.')[0]
+        txt_file = os.path.join(complete_path_to_data_folder, name+'.f0.Corrected.txt')
+        with open(txt_file) as f:
+            annotations = f.readlines()
+        for i in range(len(annotations)):
+            annotations[i] = list(map(float, annotations[i][:-2].split('     ')))
+        annotations = np.array(annotations)
+        fs, audio = read(wav_file)
+        freq, timeInSec = track_pitch_acf(audio, 1024, 512, fs)
+        trimmed_freq = np.ones(freq.shape)
+        trimmed_annotations = np.ones(freq.shape)
+        for i in range(len(freq)):
+            if annotations[i, 2] > 0:
+                trimmed_freq[i] = freq[i]
+                trimmed_annotations[i] = annotations[i, 2]
+        plt.plot(trimmed_freq)
+        plt.plot(trimmed_annotations)
+        plt.show()
+        errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
+    errCentRms = np.array(errCentRms)
+    # print(errCentRms)
+    return np.mean(errCentRms)
+
+########################### C. Bonus ###########################
 
 def get_f0_from_acfmod(r, fs):
     peaks = find_peaks(r, height=0, distance=50)[0]
@@ -103,28 +161,7 @@ def parabolic(f, x):
     yv = f[x] - 1/4. * (f[x-1] - f[x+1]) * (xv - x)
     return (xv, yv)
 
-def gen_sin(f1=441, f2=882, fs=44100):
-    t1 = np.linspace(0, 1, fs)
-    t2 = np.linspace(1, 2, fs)
-    sin_441 = np.sin(2 * np.pi * 441 * t1)
-    sin_882 = np.sin(2 * np.pi * 882 * t2)
-    sin = np.append(sin_441, sin_882)
-    return sin
-
-# fs = 44100
-# f1 = 441
-# f2 = 882
-# sin = gen_sin(f1, f2, fs)
-# [frequencies, timeInSec] = track_pitch_acfmod(sin, 441, 441, fs)
-# error = np.zeros(len(timeInSec))
-# error[:len(timeInSec) // 2] += f1
-# error[len(timeInSec) // 2 :] += f2
-# error = np.abs(error - frequencies)
-# plt.plot(timeInSec, error)
-# plt.plot(timeInSec, frequencies)
-# plt.show()
-
-def run_evaluation(complete_path_to_data_folder):
+def run_evaluation_mod(complete_path_to_data_folder):
     if complete_path_to_data_folder[-1] == '/':
         complete_path_to_data_folder = complete_path_to_data_folder[:-1]
     wav_files = [f for f in glob.glob(complete_path_to_data_folder + '/*.wav')]
@@ -153,4 +190,4 @@ def run_evaluation(complete_path_to_data_folder):
     print(errCentRms)
     return np.mean(errCentRms)
 
-print(run_evaluation("trainData"))
+print(run_evaluation("trainData/"))
