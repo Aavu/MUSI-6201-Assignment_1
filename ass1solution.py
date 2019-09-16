@@ -1,4 +1,3 @@
-import math
 import numpy as np
 from scipy.signal import medfilt
 from scipy.signal import find_peaks
