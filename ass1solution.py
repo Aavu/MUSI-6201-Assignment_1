@@ -118,7 +118,7 @@ def run_evaluation(complete_path_to_data_folder):
             annotations[i] = list(map(float, annotations[i][:-2].split('     ')))
         annotations = np.array(annotations)
         fs, audio = read(wav_file)
-        freq, timeInSec = track_pitch_acf(audio, 1024, 512, fs)
+        freq, timeInSec = track_pitch_acf(audio, 2048, 512, fs)
         trimmed_freq = np.ones(freq.shape)
         trimmed_annotations = np.ones(freq.shape)
         for i in range(len(freq)):
@@ -133,7 +133,26 @@ def run_evaluation(complete_path_to_data_folder):
     # print(errCentRms)
     return np.mean(errCentRms)
 
+print("Overall errCentRms:",run_evaluation("trainData/"))
+
 ########################### C. Bonus ###########################
+
+def block_audio_mod(x, blockSize, hopSize, fs):
+    i = 0
+    xb = []
+    timeInSec = []
+    while i < len(x):
+        timeInSec.append(i / fs)
+        chunk = x[i: i + blockSize]
+        if len(chunk) != blockSize:
+            chunk = np.append(chunk, np.zeros(blockSize - len(chunk)))
+            xb.append(chunk*np.hamming(blockSize))
+            break
+        else:
+            xb.append(chunk*np.hamming(blockSize))
+        i += hopSize
+
+    return [np.array(xb), np.array(timeInSec)]
 
 def get_f0_from_acfmod(r, fs):
     peaks = find_peaks(r, height=0, distance=50)[0]
@@ -147,7 +166,7 @@ def get_f0_from_acfmod(r, fs):
     return 0
 
 def track_pitch_acfmod(x, blockSize, hopSize, fs):
-    blocked_x, timeInSec = block_audio(x, blockSize, hopSize, fs)
+    blocked_x, timeInSec = block_audio_mod(x, blockSize, hopSize, fs)
     frequencies = []
     for b in blocked_x:
         acf = comp_acf(b)
@@ -210,4 +229,4 @@ def run_evaluation_mod(complete_path_to_data_folder):
     # print(errCentRms)
     return np.mean(errCentRms)
 
-print(run_evaluation("trainData/"))
+print("Overall errCentRms (mod):",run_evaluation_mod("trainData/"))
