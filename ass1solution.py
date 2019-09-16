@@ -1,12 +1,41 @@
+import math
 import numpy as np
-from scipy.io.wavfile import read
+from scipy.signal import medfilt
 from scipy.signal import find_peaks
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+from scipy.io.wavfile import read
 import glob
-import os
 
-np.set_printoptions(precision=3, suppress=True)
-# A. Block-wise Pitch Tracking with the ACF
+def convert_freq2midi(freqInHz):
+    if freqInHz == 0:
+        return 0
+    return 69 + 12*np.log2(freqInHz / 440.0)
+
+def freq2cent(freqInHz):
+    if freqInHz == 0:
+        return 0
+    return 1200 * np.log2(freqInHz/440.0)
+
+# def eval_pitchtrack(estimateInHz, groundtruthInHz):
+#     estimateInMIDI = convert_freq2midi(estimateInHz)
+#     groundtruthInMIDI = convert_freq2midi(groundtruthInHz)
+#     errCent = np.subtract(estimateInMIDI,groundtruthInMIDI)
+#     # n = errCent.shape[0] * errCent.shape[1]
+#     errCentRms = np.sqrt(np.mean(np.square(errCent)))
+#     # errCentRms = np.sqrt(np.divide(np.sum(np.square(errCent)),n))
+
+#     return errCentRms
+
+def eval_pitchtrack(estimateInHz, groundtruthInHz):
+    # return np.sqrt(np.mean(np.square(estimateInHz-groundtruthInHz)))
+    centError = []
+    for i in range(len(groundtruthInHz)):
+        if  groundtruthInHz[i] != 0:
+            centError.append(freq2cent(estimateInHz[i]) - freq2cent(groundtruthInHz[i]))
+    centError = np.array(centError)
+    rms = np.sqrt(np.mean(np.square(centError)))
+    # centRms = np.sqrt(np.mean(np.square(convert_freq2midi(estimateInHz)-convert_freq2midi(groundtruthInHz))))
+    return rms
 
 def block_audio(x, blockSize, hopSize, fs):
     i = 0
@@ -28,30 +57,51 @@ def block_audio(x, blockSize, hopSize, fs):
 def comp_acf(inputVector, bIsNormalized=True):
     r = np.correlate(inputVector, inputVector, 'full')
     if bIsNormalized:
-        r = np.linalg.norm(r)
+        r = r/(np.max(r) + 1e-6)
     return r[len(r)//2:]
 
-def get_f0_from_acf(r, fs):
+# def get_f0_from_acfmod(r, fs):
+#     for i in range(1, len(r)-1):
+#         if r[i-1] < r[i] and r[i] >= r[i+1]:    # find the peak
+#             px, py = parabolic(r, i)
+#             return fs/px
+#             # return fs/i
+#     return 0
+
+########################### Bonus (Code modified from Raghav's version) ############################
+
+def get_f0_from_acfmod(r, fs):
     peaks = find_peaks(r, height=0, distance=50)[0]
     if len(peaks) >= 2:
-        p = sorted(r[peaks])[::-1]
+        # p = sorted(r[peaks])[::-1]
         sorted_arg = np.argsort(r[peaks])[::-1]
-        f0 = fs/abs(peaks[sorted_arg][1] - peaks[sorted_arg][0])
-        # plt.plot(r)
-        # plt.plot(peaks, r[peaks], 'rs')
-        # plt.show()
-        return f0
+        px, py = parabolic(r,peaks[sorted_arg][0])
+        return fs/px
+        # f0 = fs/abs(peaks[sorted_arg][1] - peaks[sorted_arg][0])
+        # return f0
     return 0
-    
 
-def track_pitch_acf(x, blockSize, hopSize, fs):
+def track_pitch_acfmod(x, blockSize, hopSize, fs):
     blocked_x, timeInSec = block_audio(x, blockSize, hopSize, fs)
     frequencies = []
     for b in blocked_x:
         acf = comp_acf(b)
-        f0 = get_f0_from_acf(acf, fs)
+        f0 = get_f0_from_acfmod(acf, fs)
         frequencies.append(f0)
-    return [np.array(frequencies), timeInSec]
+    frequencies = np.array(frequencies)
+    frequencies = medfilt(frequencies,kernel_size=9)
+    return [frequencies, timeInSec]
+
+def parabolic(f, x):
+    """Quadratic interpolation for estimating the true position of an
+    inter-sample maximum when nearby samples are known.
+    f is a vector and x is an index for that vector.
+    Returns (vx, vy), the coordinates of the vertex of a parabola that goes
+    through point x and its two neighbors.
+    """
+    xv = 1/2. * (f[x-1] - f[x+1]) / (f[x-1] - 2 * f[x] + f[x+1]) + x
+    yv = f[x] - 1/4. * (f[x-1] - f[x+1]) * (xv - x)
+    return (xv, yv)
 
 def gen_sin(f1=441, f2=882, fs=44100):
     t1 = np.linspace(0, 1, fs)
@@ -65,7 +115,7 @@ def gen_sin(f1=441, f2=882, fs=44100):
 # f1 = 441
 # f2 = 882
 # sin = gen_sin(f1, f2, fs)
-# [frequencies, timeInSec] = track_pitch_acf(sin, 1024, 512, fs)
+# [frequencies, timeInSec] = track_pitch_acfmod(sin, 441, 441, fs)
 # error = np.zeros(len(timeInSec))
 # error[:len(timeInSec) // 2] += f1
 # error[len(timeInSec) // 2 :] += f2
@@ -74,51 +124,33 @@ def gen_sin(f1=441, f2=882, fs=44100):
 # plt.plot(timeInSec, frequencies)
 # plt.show()
 
-
-def convert_freq2midi(freqInHz):
-    if freqInHz == 0:
-        return 0
-    return 69 + 12*np.log2(freqInHz / 440.0)
-
-def freq2cent(freqInHz):
-    if freqInHz == 0:
-        return 0
-    return 1200 * np.log2(freqInHz/440.0)
-
-def eval_pitchtrack(estimateInHz, groundtruthInHz):
-    centError = []
-    for i in range(len(groundtruthInHz)):
-        if  groundtruthInHz[i] != 0:
-            centError.append(freq2cent(estimateInHz[i]) - freq2cent(groundtruthInHz[i]))
-    centError = np.array(centError)
-    rms = np.sqrt(np.mean(np.square(centError)))
-    return rms
-
 def run_evaluation(complete_path_to_data_folder):
-    file_path = os.path.join(complete_path_to_data_folder, '*.wav')
-    wav_files = [f for f in glob.glob(file_path)]
+    if complete_path_to_data_folder[-1] == '/':
+        complete_path_to_data_folder = complete_path_to_data_folder[:-1]
+    wav_files = [f for f in glob.glob(complete_path_to_data_folder + '/*.wav')]
     errCentRms = []
     for wav_file in wav_files:
-        name = wav_file.split('/')[-1].split('.')[0]
+        name = wav_file.split('\\')[-1].split('.')[0]
         with open(complete_path_to_data_folder + '/' + name + '.f0.Corrected.txt') as f:
             annotations = f.readlines()
         for i in range(len(annotations)):
             annotations[i] = list(map(float, annotations[i][:-2].split('     ')))
         annotations = np.array(annotations)
         fs, audio = read(wav_file)
-        freq, timeInSec = track_pitch_acf(audio, 1024, 512, fs)
+        freq, timeInSec = track_pitch_acfmod(audio, 2048, 512, fs)
         trimmed_freq = np.ones(freq.shape)
         trimmed_annotations = np.ones(freq.shape)
         for i in range(len(freq)):
             if annotations[i, 2] > 0:
                 trimmed_freq[i] = freq[i]
                 trimmed_annotations[i] = annotations[i, 2]
-        plt.plot(trimmed_freq)
-        plt.plot(trimmed_annotations)
+        plt.plot(trimmed_freq, label='trimmed frequency')
+        plt.plot(trimmed_annotations, label='trimmed annotation')
+        plt.legend()
         plt.show()
         errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
     errCentRms = np.array(errCentRms)
-    # print(errCentRms)
+    print(errCentRms)
     return np.mean(errCentRms)
 
-print(run_evaluation("trainData/"))
+print(run_evaluation("trainData"))
