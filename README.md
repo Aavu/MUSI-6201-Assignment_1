@@ -9,6 +9,9 @@ This idea is implemented via the function "get_f0_from_acfmod" and "parabolic". 
 To smooth the pitch curve such that abrupt-changing pitches are removed. Set the kernel size to 7 or 9.<br><br>
 This idea is implemented via the function "track_pitch_acfmod". Median filtering is done before outputing the pitch.
 
+### Others
+Except the functions mentioned above, namely "get_f0_from_acfmod", "parabolic" and "track_pitch_acfmod", other functions used in pitch tracker evaluation are not modified.
+
 ## Result comparison of the provided train data (3 audio clips)
 The modified code significantly reduces irrelevant pulses in pitch tracking, making the pitch tracker curve (blue) closer to the ground truth (orange). <br><br>
 Result for the first audio clip:<br>
