@@ -157,12 +157,9 @@ def block_audio_mod(x, blockSize, hopSize, fs):
 def get_f0_from_acfmod(r, fs):
     peaks = find_peaks(r, height=0, distance=50)[0]
     if len(peaks) >= 2:
-        # p = sorted(r[peaks])[::-1]
         sorted_arg = np.argsort(r[peaks])[::-1]
         px, py = parabolic(r,peaks[sorted_arg][0])
         return fs/px
-        # f0 = fs/abs(peaks[sorted_arg][1] - peaks[sorted_arg][0])
-        # return f0
     return 0
 
 def track_pitch_acfmod(x, blockSize, hopSize, fs):
