@@ -65,7 +65,7 @@ def gen_sin(f1=441, f2=882, fs=44100):
 # f1 = 441
 # f2 = 882
 # sin = gen_sin(f1, f2, fs)
-# [frequencies, timeInSec] = track_pitch_acf(sin, 441, 441, fs)
+# [frequencies, timeInSec] = track_pitch_acf(sin, 1024, 512, fs)
 # error = np.zeros(len(timeInSec))
 # error[:len(timeInSec) // 2] += f1
 # error[len(timeInSec) // 2 :] += f2
@@ -113,15 +113,15 @@ def run_evaluation(complete_path_to_data_folder):
         trimmed_freq = np.ones(freq.shape)
         trimmed_annotations = np.ones(freq.shape)
         for i in range(len(freq)):
-            if annotations[i, 3] > 0:
+            if annotations[i, 2] > 0:
                 trimmed_freq[i] = freq[i]
-                trimmed_annotations[i] = annotations[i, 3]
+                trimmed_annotations[i] = annotations[i, 2]
         plt.plot(trimmed_freq)
         plt.plot(trimmed_annotations)
         plt.show()
         errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
     errCentRms = np.array(errCentRms)
-    # print(errCentRms)
+    print(errCentRms)
     return np.mean(errCentRms)
 
 print(run_evaluation("trainData"))
