@@ -1,13 +1,12 @@
 import numpy as np
-from scipy.signal import medfilt
-from scipy.signal import find_peaks
+from scipy.signal import medfilt, find_peaks
 from matplotlib import pyplot as plt
 from scipy.io.wavfile import read
 import glob
 import os
 
 ########################### A. Block-wise Pitch Tracking with the ACF ###########################
-
+# 1
 def block_audio(x, blockSize, hopSize, fs):
     i = 0
     xb = []
@@ -24,25 +23,28 @@ def block_audio(x, blockSize, hopSize, fs):
         i += hopSize
 
     return [np.array(xb), np.array(timeInSec)]
-    
+
+# 2    
 def comp_acf(inputVector, bIsNormalized=True):
     r = np.correlate(inputVector, inputVector, 'full')
     if bIsNormalized:
         r = r/(np.sum(np.square(r)))
     return r[len(r) // 2 :]
 
+# 3
 def get_f0_from_acf(r, fs):
-    peaks = find_peaks(r, height=0, distance=50)[0]
+    peaks = find_peaks(r)[0]
+    # plt.plot(r)
+    # plt.plot(peaks, r[peaks], 'rs')
+    # plt.show()
     if len(peaks) >= 2:
         p = sorted(r[peaks])[::-1]
         sorted_arg = np.argsort(r[peaks])[::-1]
-        f0 = fs/abs(peaks[sorted_arg][1] - peaks[sorted_arg][0])
-        # plt.plot(r)
-        # plt.plot(peaks, r[peaks], 'rs')
-        # plt.show()
+        f0 = fs / abs(peaks[sorted_arg][1] - peaks[sorted_arg][0])
         return f0
     return 0
 
+# 4
 def track_pitch_acf(x, blockSize, hopSize, fs):
     blocked_x, timeInSec = block_audio(x, blockSize, hopSize, fs)
     frequencies = []
@@ -67,15 +69,22 @@ def code_for_B1():
     f1 = 441
     f2 = 882
     sin = gen_sin(f1, f2, fs)
-    [frequencies, timeInSec] = track_pitch_acf(sin, 441, 441, fs)
+    [frequencies, timeInSec] = track_pitch_acf(sin, 1024, 512, fs)
     error = np.zeros(len(timeInSec))
     error[:len(timeInSec) // 2] += f1
     error[len(timeInSec) // 2 :] += f2
     error = np.abs(error - frequencies)
-    plt.plot(timeInSec, error)
-    plt.plot(timeInSec, frequencies)
+
+    # Plot
+    line1, = plt.plot(timeInSec, error)
+    line2, = plt.plot(timeInSec, frequencies)
+    plt.legend((line1, line2), ("error", "frequencies (f0)"))
+    plt.title("Resulting f0 and error in Hz")
+    plt.xlabel("samples (sec)")
+    plt.ylabel("Frequency (Hz)")
     plt.show()
 
+# 1
 code_for_B1()
 
 def convert_freq2midi(freqInHz):
@@ -102,7 +111,6 @@ def run_evaluation(complete_path_to_data_folder):
     errCentRms = []
     for wav_file in wav_files:
         name = os.path.split(wav_file)[1].split('.')[0]
-        # name = wav_file.split('/')[-1].split('.')[0]
         txt_file = os.path.join(complete_path_to_data_folder, name+'.f0.Corrected.txt')
         with open(txt_file) as f:
             annotations = f.readlines()
@@ -174,13 +182,13 @@ def parabolic(f, x):
 # plt.show()
 
 def run_evaluation_mod(complete_path_to_data_folder):
-    if complete_path_to_data_folder[-1] == '/':
-        complete_path_to_data_folder = complete_path_to_data_folder[:-1]
-    wav_files = [f for f in glob.glob(complete_path_to_data_folder + '/*.wav')]
+    file_path = os.path.join(complete_path_to_data_folder, '*.wav')
+    wav_files = [f for f in glob.glob(file_path)]
     errCentRms = []
     for wav_file in wav_files:
-        name = wav_file.split('\\')[-1].split('.')[0]
-        with open(complete_path_to_data_folder + '/' + name + '.f0.Corrected.txt') as f:
+        name = os.path.split(wav_file)[1].split('.')[0]
+        txt_file = os.path.join(complete_path_to_data_folder, name+'.f0.Corrected.txt')
+        with open(txt_file) as f:
             annotations = f.readlines()
         for i in range(len(annotations)):
             annotations[i] = list(map(float, annotations[i][:-2].split('     ')))
@@ -193,10 +201,10 @@ def run_evaluation_mod(complete_path_to_data_folder):
             if annotations[i, 2] > 0:
                 trimmed_freq[i] = freq[i]
                 trimmed_annotations[i] = annotations[i, 2]
-        # plt.plot(trimmed_freq, label='trimmed frequency')
-        # plt.plot(trimmed_annotations, label='trimmed annotation')
-        # plt.legend()
-        # plt.show()
+        plt.plot(trimmed_freq, label='trimmed frequency')
+        plt.plot(trimmed_annotations, label='trimmed annotation')
+        plt.legend()
+        plt.show()
         errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
     errCentRms = np.array(errCentRms)
     # print(errCentRms)

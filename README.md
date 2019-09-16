@@ -1,4 +1,9 @@
 # MUSI-6201-Assignment_1
+## B.1.4
+One possible reason is insufficient length of block size that is required to resolve resolve f0. Say for instance, the block and hop size are both 441. In this case, the f0 will jump between 441Hz and 445Hz for a ground truth of 441Hz. This is because, the distance between 2 peaks is fluctuating between 100 and 99. If it is 100, the predicted f0 will be 441Hz and if it is 99, the predicted f0 will be ~445.45Hz. The deviation is high with the resolution is low (small block size). As the block size increases, the peaks detected are closer to the real peaks and the the fluctuation -> 0.
+
+One other possible reason is when the block size is too small. In this case, the peaks are not found within the block due to lack of enough information.
+
 
 
 ## Ideas behind the modification of Pitch Tracker:
