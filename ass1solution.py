@@ -99,7 +99,8 @@ def run_evaluation(complete_path_to_data_folder):
     wav_files = [f for f in glob.glob(file_path)]
     errCentRms = []
     for wav_file in wav_files:
-        name = wav_file.split('/')[-1].split('.')[0]
+        name = os.path.split(wav_file)[1].split('.')[0]
+        # name = wav_file.split('/')[-1].split('.')[0]
         with open(complete_path_to_data_folder + '/' + name + '.f0.Corrected.txt') as f:
             annotations = f.readlines()
         for i in range(len(annotations)):
