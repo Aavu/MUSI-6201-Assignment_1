@@ -32,7 +32,13 @@ def comp_acf(inputVector, bIsNormalized=True):
 def get_f0_from_acf(r, fs):
     for i in range(1, len(r)-1):
         if r[i-1] < r[i] and r[i] >= r[i+1]:
-            return fs/i
+            f0 = fs / i
+            # if f0 > 600:
+            #     plt.plot(r)
+            #     plt.plot([0,i],[r[0],r[i]], 'rs')
+            #     plt.show()
+            return f0
+    
     return 0
 
 def track_pitch_acf(x, blockSize, hopSize, fs):
@@ -65,12 +71,27 @@ def gen_sin(f1=441, f2=882, fs=44100):
 # plt.plot(timeInSec, frequencies)
 # plt.show()
 
+
 def convert_freq2midi(freqInHz):
+    if freqInHz == 0:
+        return 0
     return 69 + 12*np.log2(freqInHz / 440.0)
+
+def freq2cent(freqInHz):
+    if freqInHz == 0:
+        return 0
+    return 1200 * np.log2(freqInHz/440.0)
 
 def eval_pitchtrack(estimateInHz, groundtruthInHz):
     # return np.sqrt(np.mean(np.square(estimateInHz-groundtruthInHz)))
-    return np.sqrt(np.mean(np.square(convert_freq2midi(estimateInHz)-convert_freq2midi(groundtruthInHz))))
+    centError = []
+    for i in range(len(groundtruthInHz)):
+        if  groundtruthInHz[i] != 0:
+            centError.append(freq2cent(estimateInHz[i]) - freq2cent(groundtruthInHz[i]))
+    centError = np.array(centError)
+    rms = np.sqrt(np.mean(np.square(centError)))
+    # centRms = np.sqrt(np.mean(np.square(convert_freq2midi(estimateInHz)-convert_freq2midi(groundtruthInHz))))
+    return rms
 
 def run_evaluation(complete_path_to_data_folder):
     if complete_path_to_data_folder[-1] == '/':
@@ -85,13 +106,16 @@ def run_evaluation(complete_path_to_data_folder):
             annotations[i] = list(map(float, annotations[i][:-2].split('     ')))
         annotations = np.array(annotations)
         fs, audio = read(wav_file)
-        freq, timeInSec = track_pitch_acf(audio, 512, 512, fs)
+        freq, timeInSec = track_pitch_acf(audio, 2048, 512, fs)
         trimmed_freq = np.ones(freq.shape)
         trimmed_annotations = np.ones(freq.shape)
         for i in range(len(freq)):
             if annotations[i, 3] > 0:
                 trimmed_freq[i] = freq[i]
-                trimmed_annotations[i] = annotations[i,3]
+                trimmed_annotations[i] = annotations[i, 3]
+        plt.plot(trimmed_freq)
+        plt.plot(trimmed_annotations)
+        plt.show()
         errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
     return errCentRms
 
