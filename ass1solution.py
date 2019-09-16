@@ -37,8 +37,6 @@ def eval_pitchtrack(estimateInHz, groundtruthInHz):
     # centRms = np.sqrt(np.mean(np.square(convert_freq2midi(estimateInHz)-convert_freq2midi(groundtruthInHz))))
     return rms
 
-########################### Bonus (Code modified from Raghav's version) ############################
-
 def block_audio(x, blockSize, hopSize, fs):
     i = 0
     xb = []
@@ -70,6 +68,8 @@ def comp_acf(inputVector, bIsNormalized=True):
 #             # return fs/i
 #     return 0
 
+########################### Bonus (Code modified from Raghav's version) ############################
+
 def get_f0_from_acfmod(r, fs):
     peaks = find_peaks(r, height=0, distance=50)[0]
     if len(peaks) >= 2:
@@ -89,7 +89,7 @@ def track_pitch_acfmod(x, blockSize, hopSize, fs):
         f0 = get_f0_from_acfmod(acf, fs)
         frequencies.append(f0)
     frequencies = np.array(frequencies)
-    frequencies = medfilt(frequencies,kernel_size=9)
+    frequencies = medfilt(frequencies,kernel_size=7)
     return [frequencies, timeInSec]
 
 def parabolic(f, x):
