@@ -3,6 +3,7 @@ from scipy.io.wavfile import read
 from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 import glob
+import os
 
 np.set_printoptions(precision=3, suppress=True)
 # A. Block-wise Pitch Tracking with the ACF
@@ -26,8 +27,8 @@ def block_audio(x, blockSize, hopSize, fs):
 
 def comp_acf(inputVector, bIsNormalized=True):
     r = np.correlate(inputVector, inputVector, 'full')
-    if bIsNormalized: # change it
-        r = r/(np.max(r) + 1e-6)
+    if bIsNormalized:
+        r = r/(np.sum(np.square(r)))
     return r[len(r)//2:]
 
 def get_f0_from_acf(r, fs):
@@ -36,7 +37,6 @@ def get_f0_from_acf(r, fs):
         p = sorted(r[peaks])[::-1]
         sorted_arg = np.argsort(r[peaks])[::-1]
         f0 = fs/abs(peaks[sorted_arg][1] - peaks[sorted_arg][0])
-        # f0 = fs / abs(np.where(r == p[0])[0][0] - np.where(r == p[1])[0][0])
         # plt.plot(r)
         # plt.plot(peaks, r[peaks], 'rs')
         # plt.show()
@@ -86,20 +86,17 @@ def freq2cent(freqInHz):
     return 1200 * np.log2(freqInHz/440.0)
 
 def eval_pitchtrack(estimateInHz, groundtruthInHz):
-    # return np.sqrt(np.mean(np.square(estimateInHz-groundtruthInHz)))
     centError = []
     for i in range(len(groundtruthInHz)):
         if  groundtruthInHz[i] != 0:
             centError.append(freq2cent(estimateInHz[i]) - freq2cent(groundtruthInHz[i]))
     centError = np.array(centError)
     rms = np.sqrt(np.mean(np.square(centError)))
-    # centRms = np.sqrt(np.mean(np.square(convert_freq2midi(estimateInHz)-convert_freq2midi(groundtruthInHz))))
     return rms
 
 def run_evaluation(complete_path_to_data_folder):
-    if complete_path_to_data_folder[-1] == '/':
-        complete_path_to_data_folder = complete_path_to_data_folder[:-1]
-    wav_files = [f for f in glob.glob(complete_path_to_data_folder + '/*.wav')]
+    file_path = os.path.join(complete_path_to_data_folder, '*.wav')
+    wav_files = [f for f in glob.glob(file_path)]
     errCentRms = []
     for wav_file in wav_files:
         name = wav_file.split('/')[-1].split('.')[0]
@@ -109,7 +106,7 @@ def run_evaluation(complete_path_to_data_folder):
             annotations[i] = list(map(float, annotations[i][:-2].split('     ')))
         annotations = np.array(annotations)
         fs, audio = read(wav_file)
-        freq, timeInSec = track_pitch_acf(audio, 2048, 512, fs)
+        freq, timeInSec = track_pitch_acf(audio, 1024, 512, fs)
         trimmed_freq = np.ones(freq.shape)
         trimmed_annotations = np.ones(freq.shape)
         for i in range(len(freq)):
@@ -121,7 +118,7 @@ def run_evaluation(complete_path_to_data_folder):
         plt.show()
         errCentRms.append(eval_pitchtrack(trimmed_freq, trimmed_annotations))
     errCentRms = np.array(errCentRms)
-    print(errCentRms)
+    # print(errCentRms)
     return np.mean(errCentRms)
 
-print(run_evaluation("trainData"))
+print(run_evaluation("trainData/"))
